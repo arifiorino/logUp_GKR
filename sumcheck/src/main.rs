@@ -1,10 +1,9 @@
 use ark_ff::fields::{Field, Fp64, MontBackend, MontConfig};
-//use ark_test_curves::bls12_381::Fq;
 use ark_poly::{
     polynomial::multivariate::{SparsePolynomial, SparseTerm, Term},
     DenseMVPolynomial, Polynomial,
 };
-use ark_std::{One, UniformRand, test_rng};
+use ark_std::{UniformRand, test_rng};
 use std::convert::AsRef;
 
 #[derive(MontConfig)]
@@ -12,6 +11,8 @@ use std::convert::AsRef;
 #[generator = "3"]
 pub struct FqConfig;
 pub type Fq = Fp64<MontBackend<FqConfig, 1>>;
+
+const n:usize = 4;
 
 fn print_poly(p: &SparsePolynomial<Fq,SparseTerm>){
   println!("{}",p.num_vars);
@@ -25,7 +26,7 @@ fn print_poly(p: &SparsePolynomial<Fq,SparseTerm>){
 }
 fn sum_poly(p: &SparsePolynomial<Fq,SparseTerm>) -> Fq{
   let mut s=Fq::from(0);
-  let mut x=&mut [Fq::from(-1),Fq::from(-1),Fq::from(-1)];
+  let x=&mut [Fq::from(-1); n];
 
   let max=2_i32.pow((p.num_vars) as u32);
   for idx in 0 .. max{
@@ -94,37 +95,38 @@ fn verify_si(ss: &[SparsePolynomial<Fq,SparseTerm>], rs:&[Fq], i: usize, s:Fq){
 fn main() {
   let mut rng = test_rng();
   let p = SparsePolynomial::from_coefficients_vec(
-    3,
+    n,
     vec![
         (Fq::from(1), SparseTerm::new(vec![(0, 1)])),
         (Fq::from(1), SparseTerm::new(vec![(1, 1)])),
-        (Fq::from(1), SparseTerm::new(vec![(2, 1)])),
+        (Fq::from(1), SparseTerm::new(vec![(2, 1),(3,5)])),
+        (Fq::from(1), SparseTerm::new(vec![(3, 1)])),
     ],
   );
-  let s=sum_poly(&p);
+  let s = sum_poly(&p);
   println!("sum {s}");
 
-  let rs=&mut[Fq::from(0),Fq::from(0),Fq::from(0)];
-  let ss=&mut[SparsePolynomial::from_coefficients_vec(1,vec![]),
-              SparsePolynomial::from_coefficients_vec(2,vec![]),
-              SparsePolynomial::from_coefficients_vec(3,vec![]),];
+  let rs = &mut[Fq::from(0); n];
+  let ss:&mut[SparsePolynomial<Fq,SparseTerm>; n] = &mut Default::default();
 
-  ss[0]=prover_gen_s(&p,1,&mut [Fq::from(0),Fq::from(-1),Fq::from(-1)]);;
+  let x=&mut [Fq::from(-1); n];
+  ss[0]=prover_gen_s(&p,1,x);
   verify_si(ss,rs,1,s);
 
-  rs[0]=Fq::rand(&mut rng);
-  println!("generated random {}",rs[0]);
-  ss[1]=prover_gen_s(&p,2,&mut [rs[0],Fq::from(0),Fq::from(-1)]);;
-  verify_si(ss,rs,2,s);
+  for i in 0..n-1{
+    rs[i]=Fq::rand(&mut rng);
+    println!("generated random {}",rs[i]);
+    x[i]=rs[i];
+    for j in i+1..n-1{
+      x[j]=Fq::from(-1);
+    }
+    ss[i+1]=prover_gen_s(&p,i+2,x);
+    verify_si(ss,rs,i+2,s);
+  }
 
-  rs[1]=Fq::rand(&mut rng);
-  println!("generated random {}",rs[1]);
-  ss[2]=prover_gen_s(&p,3,&mut [rs[0],rs[1],Fq::from(0)]);;
-  verify_si(ss,rs,3,s);
-
-  rs[2]=Fq::rand(&mut rng);
-  println!("generated random {}",rs[2]);
-  let last = ss[2].evaluate(&vec![rs[2]]);
+  rs[n-1]=Fq::rand(&mut rng);
+  println!("generated random {}",rs[n-1]);
+  let last = ss[n-1].evaluate(&vec![rs[n-1]]);
   println!("last is   {}",last);
   println!("should be {}", p.evaluate(&rs.to_vec()));
 }
