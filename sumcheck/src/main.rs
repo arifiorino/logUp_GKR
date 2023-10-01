@@ -75,26 +75,21 @@ fn main() {
     ],
   );
   let s=Fq::from(0);
-  let mut r;
 
   let rs=&mut[Fq::from(0),Fq::from(0),Fq::from(0)];
   let ss=&mut[SparsePolynomial::from_coefficients_vec(1,vec![]),
               SparsePolynomial::from_coefficients_vec(1,vec![]),
               SparsePolynomial::from_coefficients_vec(1,vec![]),];
 
-  let mut si = prover_gen_s(&p,1,&mut [Fq::from(0),Fq::from(-1),Fq::from(-1)]);
-  ss[0]=si;
+  ss[0]=prover_gen_s(&p,1,&mut [Fq::from(0),Fq::from(-1),Fq::from(-1)]);;
   verify_si(ss,rs,1,s);
 
   rs[0]=Fq::rand(&mut rng);
-  si = prover_gen_s(&p,2,&mut [rs[0],Fq::from(0),Fq::from(-1)]);
-  ss[1]=si;
+  ss[1]=prover_gen_s(&p,2,&mut [rs[0],Fq::from(0),Fq::from(-1)]);;
   verify_si(ss,rs,2,s);
-  r = Fq::rand(&mut rng);
 
   rs[1]=Fq::rand(&mut rng);
-  si = prover_gen_s(&p,3,&mut [rs[0],rs[1],Fq::from(0)]);
-  ss[2]=si;
+  ss[2]=prover_gen_s(&p,3,&mut [rs[0],rs[1],Fq::from(0)]);;
   verify_si(ss,rs,3,s);
 
   rs[2]=Fq::rand(&mut rng);
