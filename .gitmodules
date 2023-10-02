@@ -1,0 +1,3 @@
+[submodule "thaler-study"]
+	path = thaler-study
+	url = https://github.com/montekki/thaler-study.git
