@@ -1,8 +1,8 @@
 [package]
-name = "rational-sumcheck"
-version = "0.1.0"
-authors = ["Ari"]
-edition = "2021"
+name = "logup-gkr"
+version = "1.0.0"
+authors = ["Ari Fiorino"]
+edition = "2023"
 
 [dependencies]
 gkr-protocol = { path = "../thaler-study/gkr-protocol" }
