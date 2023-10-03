@@ -1,7 +1,7 @@
 use gkr_protocol::circuit::{Circuit, CircuitLayer, Gate, GateType};
 use gkr_protocol::{Prover, Verifier, ProverMessage, VerifierMessage};
 use ark_std::{UniformRand, test_rng};
-use ark_ff::{Field, Fp64, MontBackend, MontConfig};
+use ark_ff::{Fp64, MontBackend, MontConfig};
 use std::collections::HashMap;
 
 #[derive(MontConfig)]
@@ -10,14 +10,14 @@ use std::collections::HashMap;
 pub struct FqConfig;
 pub type Fq = Fp64<MontBackend<FqConfig, 1>>;
 
-const lookup_n:usize = 2;
-const lookup_k:usize = 3;
-const frac_sumcheck_n:usize = lookup_n+lookup_k;
+const LOOKUP_N:usize = 2;
+const LOOKUP_K:usize = 3;
+const FRAC_SUMCHECK_N:usize = LOOKUP_N+LOOKUP_K;
 
-
+// generate the fractional sumcheck circuit
 fn gen_circuit() -> Circuit{
   let mut v = vec![];
-  for i in 0..frac_sumcheck_n{
+  for i in 0..FRAC_SUMCHECK_N{
     let mut layer1 = vec![];
     let mut layer2 = vec![];
     for j in 0..1<<i{
@@ -31,16 +31,16 @@ fn gen_circuit() -> Circuit{
     v.push(CircuitLayer::new(layer1));
     v.push(CircuitLayer::new(layer2));
   }
-  return Circuit::new(v, 2* 1<<frac_sumcheck_n);
+  return Circuit::new(v, 2* 1<<FRAC_SUMCHECK_N);
 }
 
-// Verifies that sum(p_i/q_i) == 0
+// verify that sum(p_i/q_i) == 0
 fn verify_rational_sum(p: Vec<Fq>, q: Vec<Fq>){
   let rng = &mut test_rng();
 
   let circuit = gen_circuit();
 
-  let mut input = [Fq::from(0); 2*1<<frac_sumcheck_n];
+  let mut input = [Fq::from(0); 2*1<<FRAC_SUMCHECK_N];
   for (i, (a, b)) in p.iter().zip(q.iter()).enumerate(){
     input[i*2]=*a;
     input[i*2+1]=*b;
@@ -53,7 +53,7 @@ fn verify_rational_sum(p: Vec<Fq>, q: Vec<Fq>){
 
   let circuit_outputs_message = prover.start_protocol();
 
-  let mut output_vec = vec![];
+  let output_vec;
   match circuit_outputs_message {
     ProverMessage::Begin {ref circuit_outputs} => output_vec = (*circuit_outputs).clone(),
     _ => panic!("{:?}", circuit_outputs_message)
@@ -98,13 +98,12 @@ fn verify_rational_sum(p: Vec<Fq>, q: Vec<Fq>){
 fn verify_lookup(ws: Vec<Vec<Fq>>, t: Vec<Fq>){
   let rng = &mut test_rng();
   let mut m_hashmap = HashMap::new();
-  // Calculate m
   for w in &ws{
     for x in w{
       *m_hashmap.entry(x).or_insert(0) += 1;
     }
   }
-  let mut m = [Fq::from(0) ; 1<<lookup_n];
+  let mut m = [Fq::from(0) ; 1<<LOOKUP_N];
   for (i,x) in t.iter().enumerate(){
     match m_hashmap.get(&x) {
       Some(c) => {m[i]=Fq::from(*c);},
@@ -114,14 +113,14 @@ fn verify_lookup(ws: Vec<Vec<Fq>>, t: Vec<Fq>){
   let alpha=Fq::rand(rng);
   let mut p = Vec::new();
   for x in m{
-    for _ in 0 .. (1<<lookup_k)-1{
+    for _ in 0 .. (1<<LOOKUP_K)-1{
       p.push(Fq::from(-1));
     }
     p.push(x);
   }
   let mut q = Vec::new();
-  for i in 0..(1<<lookup_n){
-    for j in 0 .. (1<<lookup_k)-1{
+  for i in 0..(1<<LOOKUP_N){
+    for j in 0 .. (1<<LOOKUP_K)-1{
       q.push(Fq::from(alpha-ws[j][i]));
     }
     q.push(Fq::from(alpha-t[i]));
