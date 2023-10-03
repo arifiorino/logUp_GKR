@@ -2,6 +2,7 @@ use gkr_protocol::circuit::{Circuit, CircuitLayer, Gate, GateType};
 use gkr_protocol::{Prover, Verifier, ProverMessage, VerifierMessage};
 use ark_std::{UniformRand, test_rng};
 use ark_ff::{Field, Fp64, MontBackend, MontConfig};
+use std::collections::HashMap;
 
 #[derive(MontConfig)]
 #[modulus = "17"]
@@ -9,11 +10,13 @@ use ark_ff::{Field, Fp64, MontBackend, MontConfig};
 pub struct FqConfig;
 pub type Fq = Fp64<MontBackend<FqConfig, 1>>;
 
-const n:usize = 3;
+const lookup_n:usize = 2;
+const lookup_k:usize = 2;
+const frac_sumcheck_n:usize = lookup_n+lookup_k;
 
 fn gen_circuit() -> Circuit{
   let mut v = vec![];
-  for i in 0..n{
+  for i in 0..frac_sumcheck_n{
     let mut layer1 = vec![];
     let mut layer2 = vec![];
     for j in 0..1<<i{
@@ -27,7 +30,7 @@ fn gen_circuit() -> Circuit{
     v.push(CircuitLayer::new(layer1));
     v.push(CircuitLayer::new(layer2));
   }
-  return Circuit::new(v, 2* 1<<n);
+  return Circuit::new(v, 2* 1<<frac_sumcheck_n);
 }
 
 // Verifies that sum(p_i/q_i) == 0
@@ -36,7 +39,7 @@ fn verify_rational_sum(p: Vec<Fq>, q: Vec<Fq>){
 
   let circuit = gen_circuit();
 
-  let mut input = [Fq::from(0); 2*1<<n];
+  let mut input = [Fq::from(0); 2*1<<frac_sumcheck_n];
   for (i, (a, b)) in p.iter().zip(q.iter()).enumerate(){
     input[i*2]=*a;
     input[i*2+1]=*b;
@@ -89,25 +92,64 @@ fn verify_rational_sum(p: Vec<Fq>, q: Vec<Fq>){
   }
 
   assert!(verifier.check_input(&input));
+}
 
+fn verify_lookup(ws: Vec<Vec<Fq>>, t: Vec<Fq>){
+  let mut m_hashmap = HashMap::new();
+  // Calculate m
+  for w in ws{
+    for x in w{
+      *m_hashmap.entry(x).or_insert(0) += 1;
+    }
+  }
+  let mut m = [Fq::from(0) ; 1<<lookup_n];
+  for (i,x) in t.iter().enumerate(){
+    match m_hashmap.get(&x) {
+      Some(c) => {m[i]=Fq::from(*c);},
+      None => {}
+    }
+  }
+  println!("{:?}",m);
 }
 
 fn main(){
-  let p = vec![Fq::from(3),
-               Fq::from(2),
-               Fq::from(0),
-               Fq::from(12),
-               Fq::from(9),
-               Fq::from(10),
-               Fq::from(6),
-               Fq::from(9)];
-  let q = vec![Fq::from(5),
-               Fq::from(4),
-               Fq::from(14),
-               Fq::from(6),
-               Fq::from(6),
-               Fq::from(13),
-               Fq::from(16),
-               Fq::from(1)];
+  // pq from example problem
+  let a = Fq::from(12);
+  let p = vec![Fq::from(-1),
+               Fq::from(-1),
+               Fq::from(-1),
+               Fq::from(5 ),
+               Fq::from(-1),
+               Fq::from(-1),
+               Fq::from(-1),
+               Fq::from(2 ),
+               Fq::from(-1),
+               Fq::from(-1),
+               Fq::from(-1),
+               Fq::from(1 ),
+               Fq::from(-1),
+               Fq::from(-1),
+               Fq::from(-1),
+               Fq::from(4 )];
+  let q = vec![a-Fq::from(1),
+               a-Fq::from(2),
+               a-Fq::from(4),
+               a-Fq::from(1),
+               a-Fq::from(2),
+               a-Fq::from(3),
+               a-Fq::from(4),
+               a-Fq::from(2),
+               a-Fq::from(1),
+               a-Fq::from(1),
+               a-Fq::from(4),
+               a-Fq::from(3),
+               a-Fq::from(1),
+               a-Fq::from(1),
+               a-Fq::from(4),
+               a-Fq::from(4)];
   verify_rational_sum(p,q);
 }
+
+
+
+
