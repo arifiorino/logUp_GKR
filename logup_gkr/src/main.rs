@@ -14,6 +14,7 @@ const lookup_n:usize = 2;
 const lookup_k:usize = 2;
 const frac_sumcheck_n:usize = lookup_n+lookup_k;
 
+
 fn gen_circuit() -> Circuit{
   let mut v = vec![];
   for i in 0..frac_sumcheck_n{
@@ -90,14 +91,15 @@ fn verify_rational_sum(p: Vec<Fq>, q: Vec<Fq>){
           _ => panic!("{:?}", verifier_msg),
       }
   }
-
   assert!(verifier.check_input(&input));
 }
 
+//verify that forall i,j: ws[i][j] in t
 fn verify_lookup(ws: Vec<Vec<Fq>>, t: Vec<Fq>){
+  let rng = &mut test_rng();
   let mut m_hashmap = HashMap::new();
   // Calculate m
-  for w in ws{
+  for w in &ws{
     for x in w{
       *m_hashmap.entry(x).or_insert(0) += 1;
     }
@@ -109,45 +111,31 @@ fn verify_lookup(ws: Vec<Vec<Fq>>, t: Vec<Fq>){
       None => {}
     }
   }
-  println!("{:?}",m);
+  println!("m: {:?}",m);
+  let alpha=Fq::rand(rng);
+  let mut p = Vec::new();
+  for x in m{
+    for _ in 0 .. (1<<lookup_k)-1{
+      p.push(Fq::from(-1));
+    }
+    p.push(x);
+  }
+  let mut q = Vec::new();
+  for i in 0..(1<<lookup_k){
+    for j in 0 .. (1<<lookup_k)-1{
+      q.push(Fq::from(alpha-ws[j][i]));
+    }
+    q.push(Fq::from(alpha-t[i]));
+  }
+  verify_rational_sum(p, q);
 }
 
 fn main(){
-  // pq from example problem
-  let a = Fq::from(12);
-  let p = vec![Fq::from(-1),
-               Fq::from(-1),
-               Fq::from(-1),
-               Fq::from(5 ),
-               Fq::from(-1),
-               Fq::from(-1),
-               Fq::from(-1),
-               Fq::from(2 ),
-               Fq::from(-1),
-               Fq::from(-1),
-               Fq::from(-1),
-               Fq::from(1 ),
-               Fq::from(-1),
-               Fq::from(-1),
-               Fq::from(-1),
-               Fq::from(4 )];
-  let q = vec![a-Fq::from(1),
-               a-Fq::from(2),
-               a-Fq::from(4),
-               a-Fq::from(1),
-               a-Fq::from(2),
-               a-Fq::from(3),
-               a-Fq::from(4),
-               a-Fq::from(2),
-               a-Fq::from(1),
-               a-Fq::from(1),
-               a-Fq::from(4),
-               a-Fq::from(3),
-               a-Fq::from(1),
-               a-Fq::from(1),
-               a-Fq::from(4),
-               a-Fq::from(4)];
-  verify_rational_sum(p,q);
+  let ws = vec![vec![Fq::from(1),Fq::from(2),Fq::from(1),Fq::from(1)],
+                vec![Fq::from(2),Fq::from(3),Fq::from(1),Fq::from(1)],
+                vec![Fq::from(4),Fq::from(4),Fq::from(4),Fq::from(4)]];
+  let t = vec![Fq::from(1),Fq::from(2),Fq::from(3),Fq::from(4)];
+  verify_lookup(ws, t);
 }
 
 
