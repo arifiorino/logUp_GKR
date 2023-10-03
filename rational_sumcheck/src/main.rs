@@ -11,13 +11,12 @@ pub type Fq = Fp64<MontBackend<FqConfig, 1>>;
 
 const n:usize = 3;
 
-// n = log_2 input size
 fn gen_circuit() -> Circuit{
   let mut v = vec![];
-  for i in 1..n{
+  for i in 0..n{
     let mut layer1 = vec![];
     let mut layer2 = vec![];
-    for j in 0..i{
+    for j in 0..1<<i{
       layer1.append(&mut vec![Gate::new(GateType::Add,[0+4*j, 1+4*j]),
                               Gate::new(GateType::Add,[2+4*j, 3+4*j])]);
       layer2.append(&mut vec![Gate::new(GateType::Mul,[0+4*j, 3+4*j]),
@@ -28,7 +27,7 @@ fn gen_circuit() -> Circuit{
     v.push(CircuitLayer::new(layer1));
     v.push(CircuitLayer::new(layer2));
   }
-  return Circuit::new(v, 1<<n);
+  return Circuit::new(v, 2* 1<<n);
 }
 
 // Verifies that sum(p_i/q_i) == 0
@@ -43,6 +42,7 @@ fn verify_rational_sum(p: Vec<Fq>, q: Vec<Fq>){
     input[i*2+1]=*b;
   }
 
+  println!("{:?}",input);
   println!("{:?}",circuit.evaluate(&input).layers);
 
   let mut prover = Prover::new(circuit.clone(), &input);
