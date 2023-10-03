@@ -11,7 +11,7 @@ pub struct FqConfig;
 pub type Fq = Fp64<MontBackend<FqConfig, 1>>;
 
 const lookup_n:usize = 2;
-const lookup_k:usize = 2;
+const lookup_k:usize = 3;
 const frac_sumcheck_n:usize = lookup_n+lookup_k;
 
 
@@ -46,8 +46,8 @@ fn verify_rational_sum(p: Vec<Fq>, q: Vec<Fq>){
     input[i*2+1]=*b;
   }
 
-  println!("{:?}",input);
-  println!("{:?}",circuit.evaluate(&input).layers);
+  println!("circuit input: {:?}",input);
+  println!("circuit result layers: {:?}",circuit.evaluate(&input).layers);
 
   let mut prover = Prover::new(circuit.clone(), &input);
 
@@ -59,7 +59,7 @@ fn verify_rational_sum(p: Vec<Fq>, q: Vec<Fq>){
     _ => panic!("{:?}", circuit_outputs_message)
   }
 
-  println!("fractional sum: {:?}",output_vec);
+  println!("fractional sum (should be zero): {:?}",output_vec);
   assert_eq!(output_vec[0], Fq::from(0));
   assert_ne!(output_vec[1], Fq::from(0));
 
@@ -111,7 +111,6 @@ fn verify_lookup(ws: Vec<Vec<Fq>>, t: Vec<Fq>){
       None => {}
     }
   }
-  println!("m: {:?}",m);
   let alpha=Fq::rand(rng);
   let mut p = Vec::new();
   for x in m{
@@ -121,17 +120,26 @@ fn verify_lookup(ws: Vec<Vec<Fq>>, t: Vec<Fq>){
     p.push(x);
   }
   let mut q = Vec::new();
-  for i in 0..(1<<lookup_k){
+  for i in 0..(1<<lookup_n){
     for j in 0 .. (1<<lookup_k)-1{
       q.push(Fq::from(alpha-ws[j][i]));
     }
     q.push(Fq::from(alpha-t[i]));
   }
+  println!("m: {:?}",m);
+  println!("t: {:?}",t);
+  println!("p: {:?}",p);
+  println!("q: {:?}",q);
   verify_rational_sum(p, q);
+  println!("successfully verified.");
 }
 
 fn main(){
   let ws = vec![vec![Fq::from(1),Fq::from(2),Fq::from(1),Fq::from(1)],
+                vec![Fq::from(2),Fq::from(3),Fq::from(1),Fq::from(1)],
+                vec![Fq::from(2),Fq::from(3),Fq::from(1),Fq::from(1)],
+                vec![Fq::from(4),Fq::from(4),Fq::from(4),Fq::from(4)],
+                vec![Fq::from(4),Fq::from(4),Fq::from(4),Fq::from(4)],
                 vec![Fq::from(2),Fq::from(3),Fq::from(1),Fq::from(1)],
                 vec![Fq::from(4),Fq::from(4),Fq::from(4),Fq::from(4)]];
   let t = vec![Fq::from(1),Fq::from(2),Fq::from(3),Fq::from(4)];
