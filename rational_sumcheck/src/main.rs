@@ -1,109 +1,63 @@
 use gkr_protocol::circuit::{Circuit, CircuitLayer, Gate, GateType};
 use gkr_protocol::{Prover, Verifier, ProverMessage, VerifierMessage};
 use ark_std::{UniformRand, test_rng};
-use ark_ff::{Fp64, MontBackend, MontConfig, PrimeField};
+use ark_ff::{Field, Fp64, MontBackend, MontConfig};
 
+#[derive(MontConfig)]
+#[modulus = "17"]
+#[generator = "3"]
+pub struct FqConfig;
+pub type Fq = Fp64<MontBackend<FqConfig, 1>>;
+
+const n:usize = 3;
+
+// n = log_2 input size
 fn gen_circuit() -> Circuit{
-  return Circuit::new(
-        vec![
-            CircuitLayer::new(
-                vec![
-                    Gate::new(
-                        GateType::Mul,
-                        [0, 1],
-                    ),
-                    Gate::new(
-                        GateType::Mul,
-                        [2, 3],
-                    ),
-                ],
-            ),
-            CircuitLayer::new(
-                vec![
-                    Gate::new(
-                        GateType::Mul,
-                        [0, 0],
-                    ),
-                    Gate::new(
-                        GateType::Mul,
-                        [1, 1],
-                    ),
-                    Gate::new(
-                        GateType::Mul,
-                        [1, 2],
-                    ),
-                    Gate::new(
-                        GateType::Mul,
-                        [3, 3],
-                    ),
-                ],
-            ),
-        ],
-        4,
-  );
-}
-
-fn test1(){
-  let circuit = gen_circuit();
-
-  let layers = circuit.evaluate(&[3, 2, 3, 1]);
-  assert_eq!(
-    layers.layers,
-    vec![vec![36, 6], vec![9, 4, 6, 1], vec![3, 2, 3, 1]]
-  );
-
-  // Test that mul_1 evaluates to 0 on all inputs except
-  // ((0, 0), (0, 0), (0, 0))
-  // ((0, 1), (0, 1), (0, 1))
-  // ((1, 0), (0, 1), (1, 0))
-  // ((1, 1), (1, 1), (1, 1))
-  for a in 0..4 {
-    for b in 0..4 {
-      for c in 0..4 {
-        let expected = ((a == 0 || a == 1) && a == b && a == c)
-            || a == 2 && b == 1 && c == 2
-            || a == b && b == c && a == 3;
-        assert_eq!(circuit.mul_i(1, a, b, c), expected, "{a} {b} {c}");
-      }
+  let mut v = vec![];
+  for i in 1..n{
+    let mut layer1 = vec![];
+    let mut layer2 = vec![];
+    for j in 0..i{
+      layer1.append(&mut vec![Gate::new(GateType::Add,[0+4*j, 1+4*j]),
+                              Gate::new(GateType::Add,[2+4*j, 3+4*j])]);
+      layer2.append(&mut vec![Gate::new(GateType::Mul,[0+4*j, 3+4*j]),
+                              Gate::new(GateType::Mul,[1+4*j, 2+4*j]),
+                              Gate::new(GateType::Mul,[1+4*j, 3+4*j]),
+                              Gate::new(GateType::Mul,[1+4*j, 3+4*j])]);
     }
+    v.push(CircuitLayer::new(layer1));
+    v.push(CircuitLayer::new(layer2));
   }
+  return Circuit::new(v, 1<<n);
 }
 
-fn test2(){
+// Verifies that sum(p_i/q_i) == 0
+fn verify_rational_sum(p: Vec<Fq>, q: Vec<Fq>){
   let rng = &mut test_rng();
-  #[derive(MontConfig)]
-  #[modulus = "389"]
-  #[generator = "2"]
-  struct FrConfig;
-
-  type Fp389 = Fp64<MontBackend<FrConfig, 1>>;
 
   let circuit = gen_circuit();
 
-  let input = [
-      Fp389::from_bigint(3u32.into()).unwrap(),
-      Fp389::from_bigint(2u32.into()).unwrap(),
-      Fp389::from_bigint(3u32.into()).unwrap(),
-      Fp389::from_bigint(1u32.into()).unwrap(),
-  ];
+  let mut input = [Fq::from(0); 2*1<<n];
+  for (i, (a, b)) in p.iter().zip(q.iter()).enumerate(){
+    input[i*2]=*a;
+    input[i*2+1]=*b;
+  }
 
-  let expected_outputs = [
-      Fp389::from_bigint(36u32.into()).unwrap(),
-      Fp389::from_bigint(6u32.into()).unwrap(),
-  ];
+  println!("{:?}",circuit.evaluate(&input).layers);
 
   let mut prover = Prover::new(circuit.clone(), &input);
 
-  // At the start of the protocol Prover sends a function $W_0$
-  // mapping output gate labels to output values.
   let circuit_outputs_message = prover.start_protocol();
 
-  assert_eq!(
-      circuit_outputs_message,
-      ProverMessage::Begin {
-          circuit_outputs: expected_outputs.to_vec()
-      }
-  );
+  let mut output_vec = vec![];
+  match circuit_outputs_message {
+    ProverMessage::Begin {ref circuit_outputs} => output_vec = (*circuit_outputs).clone(),
+    _ => panic!("{:?}", circuit_outputs_message)
+  }
+
+  println!("fractional sum: {:?}",output_vec);
+  assert_eq!(output_vec[0], Fq::from(0));
+  assert_ne!(output_vec[1], Fq::from(0));
 
   let mut verifier = Verifier::new(circuit.clone());
   let verifier_message = verifier
@@ -139,5 +93,21 @@ fn test2(){
 }
 
 fn main(){
-  test1();
+  let p = vec![Fq::from(1),
+               Fq::from(1),
+               Fq::from(1),
+               Fq::from(1),
+               Fq::from(1),
+               Fq::from(1),
+               Fq::from(1),
+               Fq::from(10)];
+  let q = vec![Fq::from(1),
+               Fq::from(1),
+               Fq::from(1),
+               Fq::from(1),
+               Fq::from(1),
+               Fq::from(1),
+               Fq::from(1),
+               Fq::from(1)];
+  verify_rational_sum(p,q);
 }
