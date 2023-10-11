@@ -2,7 +2,7 @@
 name = "logup-gkr"
 version = "1.0.0"
 authors = ["Ari Fiorino"]
-edition = "2023"
+edition = "2021"
 
 [dependencies]
 gkr-protocol = { path = "../thaler-study/gkr-protocol" }
